@@ -11,3 +11,7 @@
 [submodule "depends/circom_runtime"]
 	path = depends/circom_runtime
 	url = https://github.com/iden3/circom_runtime.git
+[submodule "depends/icicle"]
+	path = depends/icicle
+	url = https://github.com/Orbiter-Finance/icicle.git
+	branch = main

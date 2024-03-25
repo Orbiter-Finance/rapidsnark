@@ -117,6 +117,64 @@ set_target_properties(rapidsnarkStaticFrFq PROPERTIES OUTPUT_NAME rapidsnark-fr-
 add_executable(prover main_prover.cpp)
 target_link_libraries(prover rapidsnarkStatic)
 
+if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "12.2")
+    message(STATUS "Using multi-threaded CUDA compilation.")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --split-compile 0")
+else()
+    message(STATUS "Can't use multi-threaded CUDA compilation.")
+endif()
+
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
+set(CMAKE_CUDA_FLAGS_RELEASE "")
+set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -g -G -O0")
+
+if (${CMAKE_VERSION} VERSION_LESS "3.24.0")
+    set(CMAKE_CUDA_ARCHITECTURES ${CUDA_ARCH})
+else()
+    set(CMAKE_CUDA_ARCHITECTURES native) # on 3.24+, on earlier it is ignored, and the target is not passed
+endif ()
+
+add_executable(icicle_ntt_test main_icicle_ntt_test.cu)
+target_link_libraries(icicle_ntt_test rapidsnarkStatic)
+
+
+target_include_directories(
+    icicle_ntt_test
+    PUBLIC
+    ../depends/icicle/icicle
+)
+find_library(NVML_LIBRARY nvidia-ml PATHS /usr/local/cuda-12.3/targets/x86_64-linux/lib/stubs/ )
+target_link_libraries(icicle_ntt_test ${NVML_LIBRARY})
+set_target_properties(icicle_ntt_test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+add_executable(prover_cuda main_prover_cuda.cu)
+target_link_libraries(prover_cuda rapidsnarkStatic)
+
+
+target_include_directories(
+    prover_cuda
+    PUBLIC
+    ../depends/icicle/icicle
+)
+# find_library(NVML_LIBRARY nvidia-ml PATHS /usr/local/cuda-12.3/targets/x86_64-linux/lib/stubs/ )
+target_link_libraries(prover_cuda ${NVML_LIBRARY})
+set_target_properties(prover_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+add_executable(icicle_msm_test main_icicle_msm_test.cu)
+target_link_libraries(icicle_msm_test rapidsnarkStatic)
+
+
+target_include_directories(
+    icicle_msm_test
+    PUBLIC
+    ../depends/icicle/icicle
+)
+# find_library(NVML_LIBRARY nvidia-ml PATHS /usr/local/cuda-12.3/targets/x86_64-linux/lib/stubs/ )
+target_link_libraries(icicle_msm_test ${NVML_LIBRARY})
+set_target_properties(icicle_msm_test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+
+
 add_executable(verifier main_verifier.cpp)
 target_link_libraries(verifier rapidsnarkStatic)
 
@@ -124,11 +182,17 @@ add_library(rapidsnark SHARED ${LIB_SOURCES})
 
 if(USE_LOGGER OR NOT USE_OPENMP)
     target_link_libraries(prover pthread)
+    target_link_libraries(icicle_ntt_test pthread)
+    target_link_libraries(icicle_msm_test pthread)
+    target_link_libraries(prover_cuda pthread)
     target_link_libraries(verifier pthread)
 endif()
 
 if(USE_SODIUM)
     target_link_libraries(prover sodium)
+    target_link_libraries(icicle_ntt_test sodium)
+    target_link_libraries(icicle_msm_test sodium)
+    target_link_libraries(prover_cuda sodium)
 endif()
 
 
@@ -142,11 +206,17 @@ if(OpenMP_CXX_FOUND)
 
     if(TARGET_PLATFORM MATCHES "android")
         target_link_libraries(prover -static-openmp -fopenmp)
+        target_link_libraries(prover_cuda -static-openmp -fopenmp)
+        target_link_libraries(icicle_ntt_test -static-openmp -fopenmp)
+        target_link_libraries(icicle_msm_test -static-openmp -fopenmp)
         target_link_libraries(verifier -static-openmp -fopenmp)
         target_link_libraries(rapidsnark -static-openmp -fopenmp)
 
     elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
         target_link_libraries(prover OpenMP::OpenMP_CXX)
+        target_link_libraries(prover_cuda OpenMP::OpenMP_CXX)
+        target_link_libraries(icicle_ntt_test OpenMP::OpenMP_CXX)
+        target_link_libraries(icicle_msm_test OpenMP::OpenMP_CXX)
         target_link_libraries(verifier OpenMP::OpenMP_CXX)
         target_link_libraries(test_public_size OpenMP::OpenMP_CXX)
     endif()

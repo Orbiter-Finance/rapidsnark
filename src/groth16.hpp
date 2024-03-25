@@ -50,7 +50,7 @@ namespace Groth16 {
 
     template <typename Engine>
     class Prover {
-
+    protected:
         Engine &E;
         u_int32_t nVars;
         u_int32_t nPublic;

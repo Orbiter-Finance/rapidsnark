@@ -1,32 +1,11 @@
-#include <iostream>
-#include <chrono>
-#include <fstream>
-#include <gmp.h>
-#include <memory>
-#include <stdexcept>
-#include <nlohmann/json.hpp>
-
-#include <alt_bn128.hpp>
-#include "binfile_utils.hpp"
-#include "zkey_utils.hpp"
-#include "wtns_utils.hpp"
-#include "groth16.hpp"
-
-using json = nlohmann::json;
-
-#define handle_error(msg) \
-           do { perror(msg); exit(EXIT_FAILURE); } while (0)
-
-using FpMilliseconds = std::chrono::duration<float, std::chrono::milliseconds::period>;
-#define START_TIMER(timer) auto timer##_start = std::chrono::high_resolution_clock::now();
-#define END_TIMER(timer, msg) printf("%s: %.0f ms\n", msg, FpMilliseconds(std::chrono::high_resolution_clock::now() - timer##_start).count());           
+#include "groth16_cuda.cu"
 
 int main(int argc, char **argv)
 {
-    START_TIMER(prover_timer);
+    START_TIMER(prover_cuda_timer);
     if (argc != 5) {
         std::cerr << "Invalid number of parameters:\n";
-        std::cerr << "Usage: prover <circuit.zkey> <witness.wtns> <proof.json> <public.json>\n";
+        std::cerr << "Usage: prover_cuda <circuit.zkey> <witness.wtns> <proof.json> <public.json>\n";
         return EXIT_FAILURE;
     }
 
@@ -62,7 +41,7 @@ int main(int argc, char **argv)
         END_TIMER(get_zkey_wtns_timer, "get zkey,zkeyHeader,wtns,wtnsHeader");
 
         START_TIMER(make_prover_timer);
-        auto prover = Groth16::makeProver<AltBn128::Engine>(
+        auto prover = makeCuda_Prover<AltBn128::Engine>(
             zkeyHeader->nVars,
             zkeyHeader->nPublic,
             zkeyHeader->domainSize,
@@ -86,7 +65,7 @@ int main(int argc, char **argv)
         END_TIMER(wtnsData_timer, "get wtnsData");
 
         START_TIMER(get_proof_timer);
-        auto proof = prover->prove(wtnsData);
+        auto proof = prover->prove_cuda(wtnsData);
         END_TIMER(get_proof_timer, "generate proof");
 
 
@@ -123,7 +102,7 @@ int main(int argc, char **argv)
     }
 
     mpz_clear(altBbn128r);
-    END_TIMER(prover_timer, "prover total");
+    END_TIMER(prover_cuda_timer, "prover cuda total");
 
     exit(EXIT_SUCCESS);
 }
