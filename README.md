@@ -1,202 +1,145 @@
-## Important note 
+# rapidsnark-gpu
 
-**This is a new implementation of rapidsnark. The original (and now obsoleted) implemenation is available here: [rapidsnark-old](https://github.com/iden3/rapidsnark-old).**
+This is a CUDA-accelerated version of [rapidsnark](https://github.com/iden3/rapidsnark.git).
 
-# rapidsnark
+We provide a prover_cuda program that uses Ingonyama's [ICICLE](https://github.com/ingonyama-zk/icicle.git) GPU library for NTT/MSM to build proof, current only supporting [standalone mode](https://github.com/iden3/rapidsnark?tab=readme-ov-file#compile-prover-for-x86_64-host-machine).This accelerated implementation has notably reduced the building proof's time from 41.757 seconds to 8.443 seconds.
 
-Rapidsnark is a zkSnark proof generation written in C++ and intel/arm assembly. That generates proofs created in [circom](https://github.com/iden3/snarkjs) and [snarkjs](https://github.com/iden3/circom) very fast.
+# Prerequistes
 
-## Dependencies
+- CUDA Toolkit version, CMake version and GCC version etc. (please see [ICICLE](https://github.com/ingonyama-zk/icicle?tab=readme-ov-file#prerequisites))
+- Ubuntu 22.04
+- x86_64 host machine
 
-You should have installed gcc, cmake, libsodium, and gmp (development)
+# Dependencies
 
-In ubuntu:
-
-```
-sudo apt-get install build-essential cmake libgmp-dev libsodium-dev nasm curl m4
-```
-
-On MacOS:
-
-```
-brew install cmake gmp libsodium nasm
+```bash
+sudo apt-get install build-essential libgmp-dev libsodium-dev nasm curl m4
 ```
 
-## Compile prover in standalone mode
+# Compile prover_cuda
 
-### Compile prover for x86_64 host machine
-
-```sh
+```bash
 git submodule init
 git submodule update
 ./build_gmp.sh host
 mkdir build_prover && cd build_prover
 cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../package
-make -j4 && make install
+make -j$(nproc) && make install
 ```
 
-### Compile prover for macOS arm64 host machine
+# Building proof
 
-```sh
-git submodule init
-git submodule update
-./build_gmp.sh macos_arm64
-mkdir build_prover_macos_arm64 && cd build_prover_macos_arm64
-cmake .. -DTARGET_PLATFORM=macos_arm64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../package_macos_arm64
-make -j4 && make install
-```
+You can replace rapidsnark command:
 
-### Compile prover for linux arm64 host machine
-
-```sh
-git submodule init
-git submodule update
-./build_gmp.sh host
-mkdir build_prover && cd build_prover
-cmake .. -DTARGET_PLATFORM=arm64_host -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../package
-make -j4 && make install
-```
-
-### Compile prover for linux arm64 machine
-
-```sh
-git submodule init
-git submodule update
-./build_gmp.sh host
-mkdir build_prover && cd build_prover
-cmake .. -DTARGET_PLATFORM=aarch64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../package_aarch64
-make -j4 && make install
-```
-
-### Compile prover for Android
-
-Install Android NDK from https://developer.android.com/ndk or with help of "SDK Manager" in Android Studio.
-
-Set the value of ANDROID_NDK environment variable to the absolute path of Android NDK root directory.
-
-Examples:
-
-```sh
-export ANDROID_NDK=/home/test/Android/Sdk/ndk/23.1.7779620  # NDK is installed by "SDK Manager" in Android Studio.
-export ANDROID_NDK=/home/test/android-ndk-r23b              # NDK is installed as a stand-alone package.
-```
-
-Prerequisites if build on Ubuntu:
-
-```sh
-apt-get install curl xz-utils build-essential cmake m4 nasm
-```
-
-Compilation:
-
-```sh
-git submodule init
-git submodule update
-./build_gmp.sh android
-mkdir build_prover_android && cd build_prover_android
-cmake .. -DTARGET_PLATFORM=ANDROID -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../package_android
-make -j4 && make install
-```
-
-### Compile prover for iOS
-
-Install Xcode
-
-```sh
-git submodule init
-git submodule update
-./build_gmp.sh ios
-mkdir build_prover_ios && cd build_prover_ios
-cmake .. -GXcode -DTARGET_PLATFORM=IOS -DCMAKE_INSTALL_PREFIX=../package_ios
-xcodebuild -destination 'generic/platform=iOS' -scheme rapidsnarkStatic -project rapidsnark.xcodeproj -configuration Release
-```
-Open generated Xcode project and compile prover.
-
-## Build for iOS emulator
-
-Install Xcode
-
-```sh
-git submodule init
-git submodule update
-./build_gmp.sh ios_simulator
-mkdir build_prover_ios_simulator && cd build_prover_ios_simulator
-cmake .. -GXcode -DTARGET_PLATFORM=IOS -DCMAKE_INSTALL_PREFIX=../package_ios_simulator -DUSE_ASM=NO
-xcodebuild -destination 'generic/platform=iOS Simulator' -scheme rapidsnarkStatic -project rapidsnark.xcodeproj
-```
-
-Files that you need to copy to your XCode project to link against Rapidsnark:
-* build_prover_ios_simulator/src/Debug-iphonesimulator/librapidsnark.a
-* build_prover_ios_simulator/src/Debug-iphonesimulator/libfq.a
-* build_prover_ios_simulator/src/Debug-iphonesimulator/libfr.a
-* depends/gmp/package_iphone_simulator/lib/libgmp.a
-
-## Building proof
-
-You have a full prover compiled in the build directory.
-
-So you can replace snarkjs command:
-
-```sh
-snarkjs groth16 prove <circuit.zkey> <witness.wtns> <proof.json> <public.json>
-```
-
-by this one
-```sh
+```bash
 ./package/bin/prover <circuit.zkey> <witness.wtns> <proof.json> <public.json>
 ```
 
-## Compile prover in server mode
+by this one
 
-```sh
-npm install
-git submodule init
-git submodule update
-npx task buildPistache
-npx task buildProverServer
+```bash
+./package/bin/prover_cuda <circuit.zkey> <witness.wtns> <proof.json> <public.json>
 ```
 
-## Launch prover in server mode
-```sh
-./build/proverServer  <port> <circuit1_zkey> <circuit2_zkey> ... <circuitN_zkey>
+# Results
+
+Test machine:
+GPU — NVIDIA GeForce RTX 4090 24GB  
+CPU — 2\* AMD EPYC 7763 64-Core Processor  
+RAM - 256GB
+
+CPU version:
+
+```
+init and set str for altBbn128r: 0 ms
+get zkey,zkeyHeader,wtns,wtnsHeader: 0 ms
+make prover: 64 ms
+get wtnsData: 0 ms
+Multiexp A: 1816 ms
+Multiexp B1: 2020 ms
+Multiexp B2: 2520 ms
+Multiexp C: 2775 ms
+Initializing a b c A: 59 ms
+Processing coefs: 593 ms
+Calculating c: 49 ms
+Initializing fft: 0 ms
+iFFT A: 18158 ms
+a After ifft: 0 ms
+Shift A: 46 ms
+a After shift: 0 ms
+FFT A: 3188 ms
+a After fft: 0 ms
+iFFT B: 1805 ms
+b After ifft: 0 ms
+Shift B: 45 ms
+b After shift: 0 ms
+FFT B: 750 ms
+b After fft: 0 ms
+iFFT C: 971 ms
+c After ifft: 0 ms
+Shift C: 49 ms
+c After shift: 0 ms
+FFT C: 779 ms
+c After fft: 0 ms
+Start ABC: 48 ms
+abc: 0 ms
+Multiexp H: 4720 ms
+generate proof: 40708 ms
+write proof to file: 0 ms
+write public to file: 0 ms
+prover total: 41757 ms
 ```
 
-For every `circuit.circom` you have to generate with circom with --c option the `circuit_cpp` and after compilation you have to copy the executable into the `build` folder so the server can generate the witness and then the proof based on this witness.
-You have an example of the usage calling the server endpoints to generate the proof with Nodejs in `/tools/request.js`.
+GPU version:
 
-To test a request you should pass an `input.json` as a parameter to the request call.
-```sh
-node tools/request.js <input.json> <circuit>
+```
+init and set str for altBbn128r: 0 ms
+get zkey,zkeyHeader,wtns,wtnsHeader: 0 ms
+make prover: 65 ms
+get wtnsData: 0 ms
+get MSM config: 0 ms
+Multiexp A: 848 ms
+Multiexp B1: 679 ms
+Multiexp B2: 1080 ms
+Multiexp C: 683 ms
+Initializing a b c A: 75 ms
+Processing coefs: 618 ms
+Calculating c: 38 ms
+Initializing fft: 148 ms
+iFFT A: 291 ms
+a After ifft: 0 ms
+Shift A: 164 ms
+a After shift: 0 ms
+FFT A: 294 ms
+a After fft: 0 ms
+iFFT B: 272 ms
+b After ifft: 0 ms
+Shift B: 33 ms
+b After shift: 0 ms
+FFT B: 308 ms
+b After fft: 0 ms
+iFFT C: 255 ms
+c After ifft: 0 ms
+Shift C: 28 ms
+c After shift: 0 ms
+FFT C: 278 ms
+c After fft: 0 ms
+Start ABC: 46 ms
+abc: 0 ms
+Multiexp H: 929 ms
+generate proof: 7362 ms
+write proof to file: 0 ms
+write public to file: 0 ms
+prover cuda total: 8443 ms
 ```
 
-## Benchmark
+# Note
 
-This prover parallelizes as much as it can the proof generation.
+This project has been tested only under the following configurations:
 
-The prover is much faster that snarkjs and faster than bellman.
-
-[TODO] Some comparative tests should be done.
-
-## Run tests
-
-You need to perform all the steps from the
-[Compile prover in standalone mode](#compile-prover-in-standalone-mode) section.
-After that you can run tests with the following command from the build
-directory:
-
-```sh
-# Make sure you are in the build directory
-# ./build_prover for linux, ./build_prover_macos_arm64 for macOS.
-cmake --build . --parallel && ctest --rerun-failed --output-on-failure
-```
-
-To run just the `test_public_size` test for custom zkey to measure the
-performance, you can run the following command from the build directory:
-
-```sh
-src/test_public_size ../testdata/circuit_final.zkey 86
-```
-
-## License
-
-rapidsnark is part of the iden3 project copyright 2021 0KIMS association and published with GPL-3 license. Please check the COPYING file for more details.
+- Ubuntu 22.04
+- Kernel version 6.5.0-25-generic
+- CUDA 12.3
+- GCC/G++ 12.3.0
+- GPU — NVIDIA GeForce RTX 4090 24GB
+- CPU — 2\* AMD EPYC 7763 64-Core Processor
